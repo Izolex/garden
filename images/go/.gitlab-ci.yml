@@ -1,0 +1,16 @@
+build-go:
+  stage: build
+  extends: .docker
+  rules:
+    - changes:
+        - go/**/*
+  script:
+    - docker pull -q ${IMAGE_GO} || true
+    - docker buildx build ./go
+      --pull
+      --push
+      --platform ${PLATFORM}
+      --cache-from ${IMAGE_GO}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      -t ${IMAGE_GO}
+

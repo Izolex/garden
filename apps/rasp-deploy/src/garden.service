@@ -1,0 +1,7 @@
+[Unit]
+Description={{ service_name }}
+
+[Service]
+Type=simple
+ExecStart={{ dest_service_bin }}
+EnvironmentFile={{ dest_service_env }}

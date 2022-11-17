@@ -1,0 +1,16 @@
+build-deploy:
+  stage: build
+  extends: .docker
+  rules:
+    - changes:
+        - deploy/**/*
+  script:
+    - docker pull -q ${IMAGE_DEPLOY} || true
+    - docker buildx build ./deploy
+      --pull
+      --push
+      --platform linux/amd64
+      --cache-from ${IMAGE_DEPLOY}
+      --build-arg BASE_IMAGE=${IMAGE_DOCKER}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      -t ${IMAGE_DEPLOY}

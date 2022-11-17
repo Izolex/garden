@@ -1,0 +1,4 @@
+controller:
+  hostNetwork: true
+  tcp:
+    22: "gitlab/gitlab-gitlab-shell:22"

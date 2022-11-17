@@ -1,0 +1,48 @@
+include:
+  - project: 'garden/gitlab-ci-tools'
+    ref: 'master'
+    file: 'docker.yml'
+
+.deploy:
+  extends: .docker
+  image: ${IMAGE_DEPLOY}
+  stage: deploy
+  script:
+    - cd k8s/overlay/${OVERLAY}
+    - |
+      for app in API RUNNER WEB; do
+        IMAGE="IMAGE_${app}"
+        IMAGE_NAME="IMAGE_NAME_${app}"
+
+        export ${IMAGE}="${!IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
+        if ! docker manifest inspect ${!IMAGE}; then
+          k8sLabel="$(echo "${app}" | tr '[:upper:]' '[:lower:]')"
+          currentImages="$(kubectl get pods -n "${OVERLAY}" -o=jsonpath="{.items[*].spec.containers[*].image}" -l app="${k8sLabel}")"
+          export ${IMAGE}="$(echo "${currentImages}" | cut -d ' ' -f 1)";
+        fi
+
+        echo "${IMAGE}=${!IMAGE}"
+      done
+    - kustomize edit set image api-image="${IMAGE_API}";
+    - kustomize edit set image runner-image="${IMAGE_RUNNER}";
+    - kustomize edit set image web-image="${IMAGE_WEB}";
+    - kubectl diff -k . || [ $? -lt 2 ]
+    - kubectl apply -k .
+    - |
+      for app in api runner web; do
+        kubectl rollout status Deployment/${app} -n ${OVERLAY}  --watch=true
+      done
+
+deploy.prod:
+  extends: .deploy
+  variables:
+    OVERLAY: prod
+  only:
+    - prod
+
+deploy.qa:
+  extends: .deploy
+  variables:
+    OVERLAY: qa
+  only:
+    - qa

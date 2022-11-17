@@ -1,0 +1,35 @@
+include:
+  - project: 'garden/gitlab-ci-tools'
+    ref: 'master'
+    file: 'docker.yml'
+  - project: 'garden/gitlab-ci-tools'
+    ref: 'master'
+    file: 'go.yml'
+
+stages:
+  - build
+  - test
+
+build:
+  extends: .go-build
+  stage: build
+  variables:
+    APP: runner
+    IMAGE_NAME: ${IMAGE_NAME_RUNNER}
+
+test-code:
+  extends: .go-test
+  stage: test
+  variables:
+    APP: runner
+
+#test-image:
+#  image: ${BASE_IMAGE_DEBIAN}
+#  stage: test
+#  needs: [ build ]
+#  services:
+#    - name: ${IMAGE_NAME_RUNNER}:${CI_COMMIT_SHORT_SHA}
+#      alias: runner
+#  script:
+#    - curl -sSf http://runner/monitoring/status | grep -Fq "database"
+

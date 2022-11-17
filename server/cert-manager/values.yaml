@@ -1,0 +1,9 @@
+prometheus:
+  enabled: false
+
+installCRDs: true
+
+ingressShim:
+  defaultIssuerName: letsencrypt
+  defaultIssuerKind: ClusterIssuer
+  defaultIssuerGroup: cert-manager.io

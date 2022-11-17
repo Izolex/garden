@@ -1,0 +1,10 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: garden-tls
+spec:
+  secretName: garden-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer

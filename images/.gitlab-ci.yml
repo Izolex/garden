@@ -1,0 +1,15 @@
+variables:
+  PLATFORM: linux/arm64/v8,linux/amd64
+  IMAGE_DEBIAN: ${CI_REGISTRY_IMAGE}/debian:latest
+  IMAGE_DOCKER: ${CI_REGISTRY_IMAGE}/docker:latest
+  IMAGE_GO: ${CI_REGISTRY_IMAGE}/go:latest
+  IMAGE_DEPLOY: ${CI_REGISTRY_IMAGE}/deploy:latest
+
+include:
+  - project: 'garden/gitlab-ci-tools'
+    ref: 'master'
+    file: 'docker.yml'
+  - '/debian/.gitlab-ci.yml'
+  - '/deploy/.gitlab-ci.yml'
+  - '/docker/.gitlab-ci.yml'
+  - '/go/.gitlab-ci.yml'

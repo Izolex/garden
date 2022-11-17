@@ -1,0 +1,7 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+data:
+  SENTRY_DSN: https://7e6f5e7a62ce49c093d123106bb31c09@o1083905.ingest.sentry.io/6093757

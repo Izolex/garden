@@ -1,0 +1,4 @@
+src/vendor
+src/__debug_bin
+deploy/vendor
+deploy/main

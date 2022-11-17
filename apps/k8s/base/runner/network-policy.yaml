@@ -1,0 +1,19 @@
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: runner
+spec:
+  podSelector:
+    matchLabels:
+      app: runner
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: mysql
+    - to:
+      ports:
+        - port: 3306

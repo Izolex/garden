@@ -1,0 +1,15 @@
+build-docker:
+  stage: build
+  extends: .docker
+  rules:
+    - changes:
+        - docker/**/*
+  script:
+    - docker pull -q ${IMAGE_DOCKER} || true
+    - docker buildx build ./docker
+      --pull
+      --push
+      --platform ${PLATFORM}
+      --cache-from ${IMAGE_DOCKER}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      -t ${IMAGE_DOCKER}

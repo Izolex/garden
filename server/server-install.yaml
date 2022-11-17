@@ -1,0 +1,164 @@
+---
+- hosts: all
+  become: true
+  tasks:
+# APT setup
+    - name: Add an apt signing key for Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add apt repository for stable version
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
+        state: present
+
+    - name: Add an apt signing key for Kubernetes
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+
+    - name: Adding apt repository for Kubernetes
+      apt_repository:
+        repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+        filename: kubernetes.list
+
+    - name: Install packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg-agent
+          - software-properties-common
+          - vim
+          - docker-ce
+          - docker-ce-cli
+          - kubelet
+          - kubeadm
+          - kubectl
+          - zfsutils-linux
+          - zfs-initramfs
+
+# Create ZFS pool
+    - name: Comment /data mount in fstab
+      command: sed -i 's+.*/data+#&+' /etc/fstab
+
+    - name: Umount /data dir
+      command: umount /data
+
+    - name: Stop raid
+      command: mdadm -S /dev/md2
+
+    - name: Change type of third partition to Solaris (bf)
+      command: sfdisk --id /dev/{{ item }} 3 bf
+      with_items:
+        - sda
+        - sdb
+        - sdc
+
+    - name: Update initramfs
+      command: update-initramfs -u
+
+    - name: Wipe it all
+      command: mdadm --zero-superblock /dev/sda3 /dev/sdb3 /dev/sdc3
+
+    - name: Create ZFS pool
+      command: zpool create -f \
+        -o ashift=12 \
+        -O acltype=posixacl -O compression=lz4 \
+        -O normalization=formD -O relatime=on \
+        -O xattr=sa -O mountpoint=/data \
+        ufo-pool raidz \
+        /dev/disk/by-id/ata-SAMSUNG_MZ7LN256HMJP-00000_S2MJNX0H904202-part3 \
+        /dev/disk/by-id/ata-SAMSUNG_MZ7LN256HMJP-00000_S2MJNX0H904209-part3 \
+        /dev/disk/by-id/ata-SAMSUNG_MZ7LN256HMJP-00000_S2MJNX0H904329-part3
+
+    - name: Reboot
+      reboot:
+        reboot_timeout: 3600
+
+# Remove swap
+    - name: Remove swapfile from /etc/fstab
+      mount:
+        name: "{{ item }}"
+        fstype: swap
+        state: absent
+      with_items:
+        - swap
+        - none
+
+    - name: Disable swap
+      command: swapoff -a
+      when: ansible_swaptotal_mb > 0
+
+# Docker configuration
+    - name: Create docker directory
+      file:
+        path: /etc/docker
+        state: directory
+
+    - name: Create docker daemon config
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "exec-opts": ["native.cgroupdriver=systemd"],
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "100m"
+            },
+            "storage-driver": "overlay2"
+          }
+
+    - name: Enable and restart docker
+      systemd:
+        name: docker
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
+
+# Cluster init
+    - name: Init cluster
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+
+# Setup kube configs
+    - name: Setup kubeconfig for root user
+      command: "{{ item }}"
+      with_items:
+        - mkdir -p /root/.kube
+        - cp -i /etc/kubernetes/admin.conf /root/.kube/config
+        - chown root:root /root/.kube/config
+
+    - name: Setup kubeconfig for honza user
+      command: "{{ item }}"
+      with_items:
+        - mkdir -p /home/honza/.kube
+        - cp -i /etc/kubernetes/admin.conf /home/honza/.kube/config
+        - chown honza:honza /home/honza/.kube/config
+
+# Cluster setup
+    - name: Install flannel
+      become: false
+      command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+    - name: Allow pods scheduling on control-plane node
+      command: kubectl taint nodes --all node-role.kubernetes.io/master-
+
+    - name: Generate join command
+      command: kubeadm token create --print-join-command
+      register: join_command
+
+    - name: Execute join command
+      command: "{{ join_command.stdout }}"
+
+    - name: Install ZFS controller
+      command: kubectl apply -f https://openebs.github.io/charts/zfs-operator.yaml
+
+    - name: Install kubernetes dashboard
+      command: kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.2.0/aio/deploy/recommended.yaml

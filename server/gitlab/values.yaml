@@ -1,0 +1,70 @@
+global:
+  edition: ce
+  storageClass: zfspv-fast
+  hosts:
+    domain: honzas.garden
+    externalIP: 163.172.105.132
+  ingress:
+    class: nginx
+    configureCertmanager: false
+    annotations:
+      kubernetes.io/tls-acme: true
+      cert-manager.io/cluster-issuer: letsencrypt
+    tls:
+      secretName: gitlab-tls
+  smtp:
+    enabled: false
+certmanager:
+  install: false
+nginx-ingress:
+  enabled: false
+prometheus:
+  install: false
+email:
+  enabled: false
+gitlab:
+  webservice:
+    minReplicas: 1
+    maxReplicas: 1
+  sidekiq:
+    minReplicas: 1
+    maxReplicas: 1
+  gitlab-shell:
+    minReplicas: 1
+    maxReplicas: 1
+  gitaly:
+    install: true
+    master:
+      persistence:
+        size: 50Gi
+registry:
+  hpa:
+    minReplicas: 1
+    maxReplicas: 1
+postgresql:
+  install: true
+  master:
+    persistence:
+      size: 8Gi
+minio:
+  install: true
+  master:
+    persistence:
+      size: 30Gi
+redis:
+  install: true
+  master:
+    persistence:
+      size: 5Gi
+gitlab-runner:
+  runners:
+    privileged: true
+    config: |
+      [[runners]]
+        [runners.kubernetes]
+          image = "ubuntu:20.04"
+          privileged = true
+        [[runners.kubernetes.volumes.empty_dir]]
+          name = "docker-certs"
+          mount_path = "/certs/client"
+          medium = "Memory"

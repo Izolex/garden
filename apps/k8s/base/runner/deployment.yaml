@@ -1,0 +1,58 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: runner
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: runner
+  template:
+    metadata:
+      labels:
+        app: runner
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      containers:
+        - name: runner
+          image: runner-image
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+            - name: TICKER_DURATION
+              value: "5000" # ms
+            - name: API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: config
+                  key: API_URL
+            - name: API_SIGN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: env
+                  key: API_SING_KEY
+            - name: MYSQL_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: env
+                  key: MYSQL_DSN
+            - name: SENTRY_DSN
+              valueFrom:
+                configMapKeyRef:
+                  name: config
+                  key: SENTRY_DSN
+            - name: APP_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: config
+                  key: APP_MODE

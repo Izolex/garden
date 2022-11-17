@@ -1,0 +1,13 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: zfspv-fast
+parameters:
+  recordsize: "4k"
+  compression: "lz4"
+  dedup: "off"
+  fstype: "zfs"
+  poolname: "ufo-pool"
+provisioner: zfs.csi.openebs.io
+allowVolumeExpansion: true

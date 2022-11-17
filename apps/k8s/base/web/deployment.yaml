@@ -1,0 +1,43 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      containers:
+        - name: web
+          image: web-image
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+            - name: NODE_ENV # todo
+              value: "release"
+            - name: API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: config
+                  key: API_URL
+            - name: SENTRY_DSN
+              valueFrom:
+                configMapKeyRef:
+                  name: config
+                  key: SENTRY_DSN

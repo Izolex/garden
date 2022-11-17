@@ -1,0 +1,158 @@
+version: '3.6'
+
+networks:
+  garden:
+    driver: bridge
+
+volumes:
+  mysql_data:
+
+services:
+  proxy:
+    build:
+      context: docker/proxy
+      dockerfile: Dockerfile
+    networks:
+      garden:
+        aliases:
+          - garden.local
+          - api.garden.local
+          - rasp.garden.local
+    links:
+      - web
+      - api
+      - rasp
+    depends_on:
+      - web
+      - api
+      - rasp
+    ports:
+      - "80:80"
+      - "443:443"
+
+  web:
+    environment:
+      - NODE_ENV=development
+      - API_URL=//api.garden.local
+      - PORT=80
+    build:
+      context: .
+      dockerfile: ./web/docker/dev/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE_NODE}
+    volumes:
+      - ./web/src:/usr/src/web
+      - /usr/src/web/node_modules
+    networks:
+      garden:
+        aliases:
+          - web.garden
+    command: yarn start
+
+  mysql:
+    environment:
+      - MYSQL_USER
+      - MYSQL_PASSWORD
+      - MYSQL_DATABASE
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+      - TZ=Europe/Prague
+    image: mariadb:10.5.8
+    volumes:
+      - ./docker/mysql/sql/:/docker-entrypoint-initdb.d/
+      - ./docker/mysql/conf.cnf:/etc/mysql/conf.d/conf.cnf
+      - mysql_data:/var/lib/mysql/
+    networks:
+      - garden
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysql", "-u", "root", "-D", "garden", "-e", "SELECT 1" ]
+      interval: 5s
+      timeout: 5s
+  #    logging:
+  #      driver: none
+
+  runner:
+    environment:
+      - APP_MODE
+      - SENTRY_DSN
+      - MYSQL_DSN
+      - API_SIGN_KEY
+      - API_URL=api.garden
+      - TICKER_DURATION=5000
+    build:
+      context: .
+      dockerfile: ./docker/go/Dockerfile
+      target: dev
+      args:
+        APP: runner
+        BASE_IMAGE: ${BASE_IMAGE_GO}
+    volumes:
+      - ./runner/src:/usr/src/app/src
+      - ./shared:/usr/src/shared
+    networks:
+      garden:
+        aliases:
+          - runner.garden
+    depends_on:
+      - mysql
+      - rasp
+    links:
+      - mysql
+      - rasp
+    ports:
+      - "40001:40000"
+
+  api:
+    environment:
+      - APP_MODE
+      - SENTRY_DSN
+      - MYSQL_DSN
+      - API_SIGN_KEY
+    build:
+      context: .
+      dockerfile: ./docker/go/Dockerfile
+      target: dev
+      args:
+        APP: api
+        BASE_IMAGE: ${BASE_IMAGE_GO}
+    volumes:
+      - ./api/src:/usr/src/app/src
+      - ./shared:/usr/src/shared
+    networks:
+      garden:
+        aliases:
+          - api.garden
+    depends_on:
+      - mysql
+    links:
+      - mysql
+    ports:
+      - "40002:40000"
+
+  rasp:
+    environment:
+      - APP_MODE
+      - SENTRY_DSN
+      - RASP_ID=1
+      - API_SIGN_KEY
+      - API_URL=http://api.garden
+    build:
+      context: .
+      dockerfile: ./rasp/Dockerfile
+      target: dev
+      args:
+        APP: rasp
+        BASE_IMAGE: ${BASE_IMAGE_GO}
+        DB_PATH: /usr/src/db/db.db
+    volumes:
+      - ./rasp/src:/usr/src/app/src
+      - ./shared:/usr/src/shared
+    networks:
+      garden:
+        aliases:
+          - rasp.garden
+    links:
+      - api
+    ports:
+      - "40003:40000"

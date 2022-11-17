@@ -1,0 +1,73 @@
+---
+- hosts: all
+  become: true
+  vars:
+    service_name: garden
+    src_dir: /usr/src/garden
+    db_path: "{{ src_dir }}/db.db"
+    dest_service_bin: "{{ src_dir }}/garden"
+    dest_service_env: "{{ src_dir }}/garden.env"
+    dest_sql: "{{ src_dir }}/struct.sql"
+    dest_unit_file: /etc/systemd/system/garden.service
+  tasks:
+    - name: Check if garden service exists
+      stat: path="{{ dest_unit_file }}"
+      register: service_status
+    - name: Stop garden
+      service: name="{{ service_name }}" state=stopped
+      when: service_status.stat.exists
+      register: service_stopped
+
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "{{ src_dir }}"
+    - name: Copy files
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: "{{ item.mode }}"
+      with_items:
+        - { mode: 0644, src: "{{ source_db_path }}", dest: "{{ dest_sql }}" }
+        - { mode: 0777, src: "{{ service_bin }}", dest: "{{ dest_service_bin }}" }
+
+    - name: Gather the package facts
+      package_facts:
+        manager: "auto"
+    - name: Install sqlite3
+      apk:
+        name: sqlite3
+        update_cache: yes
+      when: "'sqlite3' not in ansible_facts.packages"
+
+    - name: Check if sqlite3 db exists
+      stat:
+        path: "{{ db_path }}"
+      register: sqlite3_db
+    - name: Create sqlite3 DB
+      shell: "sqlite3 {{ db_path }} < {{ dest_sql }}"
+      when: sqlite3_db.stat.exists == False
+
+    - name: Create env file
+      template:
+        src: ./garden.env
+        dest: "{{ dest_service_env }}"
+        mode: 0644
+      vars:
+        DB_PATH: "{{ db_path }}"
+        SENTRY_DSN: "{{ sentry_dsn }}"
+        API_URL: "{{ api_url }}"
+        API_SIGN_KEY: "{{ api_sign_key }}"
+    - name: Create unit file
+      template:
+        src: ./garden.service
+        dest: "{{ dest_unit_file }}"
+        mode: 0644
+
+    - name: Start garden
+      systemd:
+        name: garden
+        state: started
+        daemon_reload: yes

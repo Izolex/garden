@@ -1,0 +1,16 @@
+.docker:
+  image: ${IMAGE_DOCKER}
+  services:
+    - docker:19.03.13-dind
+  before_script:
+    # wait for docker certs.. wtf
+    - |
+      until [ -f /certs/client/ca.pem ]
+      do
+        sleep 1
+      done
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker context create --from default garden-context
+    - docker buildx create --name multiarch --driver docker-container --use garden-context
+    - docker buildx inspect --bootstrap
+

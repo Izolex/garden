@@ -1,0 +1,15 @@
+build-debian:
+  stage: build
+  extends: .docker
+  rules:
+    - changes:
+        - debian/**/*
+  script:
+    - docker pull -q ${IMAGE_DEBIAN} || true
+    - docker buildx build ./debian
+      --pull
+      --push
+      --platform ${PLATFORM}
+      --cache-from ${IMAGE_DEBIAN}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      -t ${IMAGE_DEBIAN}

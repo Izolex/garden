@@ -1,0 +1,99 @@
+variables:
+  IMAGE_DEPLOY: ${CI_REGISTRY}/garden/images/deploy:latest
+  IMAGE_RASP_DEPLOY: ${CI_REGISTRY_IMAGE}/rasp-deploy:latest
+  IMAGE_DOCKER: ${CI_REGISTRY}/garden/images/docker:latest
+  IMAGE_NAME_API: ${CI_REGISTRY_IMAGE}/api
+  IMAGE_NAME_WEB: ${CI_REGISTRY_IMAGE}/web
+  IMAGE_NAME_RUNNER: ${CI_REGISTRY_IMAGE}/runner
+
+stages:
+  - prepare
+  - api
+  - runner
+  - web
+  - rasp
+  - deploy
+
+prepare:
+  stage: prepare
+  script:
+    - source .env
+    - touch vars.env
+    - |
+      for name in BASE_IMAGE_GO BASE_IMAGE_NODE BASE_IMAGE_DEBIAN BASE_IMAGE_NGINX; do
+        echo "${name}=${!name}" >> vars.env
+      done
+    - cat vars.env
+  artifacts:
+    reports:
+      dotenv: vars.env
+
+api:
+  stage: api
+  needs: [ prepare ]
+  trigger:
+    include: api/.gitlab-ci.yml
+    strategy: depend
+  rules:
+    - changes:
+        - shared/**/*
+        - api/**/*
+  variables:
+    BASE_IMAGE_GO: ${BASE_IMAGE_GO}
+    BASE_IMAGE_DEBIAN: ${BASE_IMAGE_DEBIAN}
+
+runner:
+  stage: runner
+  needs: [ prepare ]
+  trigger:
+    include: runner/.gitlab-ci.yml
+    strategy: depend
+  rules:
+    - changes:
+        - shared/**/*
+        - runner/**/*
+  variables:
+    BASE_IMAGE_GO: ${BASE_IMAGE_GO}
+    BASE_IMAGE_DEBIAN: ${BASE_IMAGE_DEBIAN}
+
+web:
+  stage: web
+  needs: [ prepare ]
+  trigger:
+    include: web/.gitlab-ci.yml
+    strategy: depend
+  rules:
+    - changes:
+        - web/**/*
+  variables:
+    BASE_IMAGE_NODE: ${BASE_IMAGE_NODE}
+    BASE_IMAGE_NGINX: ${BASE_IMAGE_NGINX}
+    BASE_IMAGE_DEBIAN: ${BASE_IMAGE_DEBIAN}
+
+rasp:
+  stage: rasp
+  needs: [ prepare ]
+  trigger:
+    include: rasp/.gitlab-ci.yml
+    strategy: depend
+  rules:
+    - changes:
+        - shared/**/*
+        - rasp/**/*
+        - rasp-deploy/**/*
+  variables:
+    BASE_IMAGE_GO: ${BASE_IMAGE_GO}
+
+deploy:
+  stage: deploy
+  trigger:
+    include: k8s/.gitlab-ci.yml
+    strategy: depend
+  rules:
+    - if: $CI_COMMIT_BRANCH == "prod" || $CI_COMMIT_BRANCH == "qa"
+      changes:
+        - api/**/*
+        - shared/**/*
+        - k8s/**/*
+        - runner/**/*
+        - web/**/*

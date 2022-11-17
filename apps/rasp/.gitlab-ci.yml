@@ -1,0 +1,50 @@
+include:
+  - project: 'garden/gitlab-ci-tools'
+    ref: 'master'
+    file: 'go.yml'
+  - project: 'garden/gitlab-ci-tools'
+    ref: 'master'
+    file: 'docker.yml'
+
+stages:
+  - test
+  - build
+  - deploy
+
+test.rasp:
+  extends: .go-test
+  variables:
+    APP: rasp
+
+test.deploy:
+  extends: .go-test
+  variables:
+    APP: rasp-deploy
+
+build:
+  extends: .docker
+  image: ${IMAGE_DEPLOY}
+  stage: build
+  script:
+    - make -C rasp build
+    - docker pull -q ${IMAGE_RASP_DEPLOY} || true
+    - docker build .
+      -f ./rasp-deploy/Dockerfile
+      -t ${IMAGE_RASP_DEPLOY}
+      --pull
+      --cache-from ${IMAGE_RASP_DEPLOY}
+      --build-arg BASE_IMAGE=${BASE_IMAGE_GO}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+    - docker push ${IMAGE_RASP_DEPLOY}
+
+deploy:
+  extends: .docker
+  image: ${IMAGE_DEPLOY}
+  stage: deploy
+  only:
+    - prod
+  script:
+    - if kubectl get job -n prod --ignore-not-found | grep -q rasp-deploy; then exit 1; fi
+    - cd rasp-deploy
+    - envsubst < job.yaml | kubectl apply -f -
+    - kubectl wait --for=condition=complete --timeout=-1s -n prod job/rasp-deploy

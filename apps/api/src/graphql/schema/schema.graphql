@@ -1,0 +1,31 @@
+schema {
+    query: Query
+}
+
+type Query {
+    RaspberryList(
+        fromTime: Time!,
+        toTime: Time!
+    ): [Raspberry!]!
+}
+
+type PeripheryValue {
+    Value: Float!
+    DateTime: Time!
+}
+
+type Periphery {
+    ID: ID!
+    Name: String!
+    IsMeasurable: Boolean!
+    ValueList: [PeripheryValue!]!
+}
+
+type Raspberry {
+    ID: ID!
+    Name: String!
+    IsActive: Boolean!
+    PeripheryList: [Periphery!]!
+}
+
+scalar Time

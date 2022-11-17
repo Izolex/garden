@@ -1,0 +1,41 @@
+include: 'docker.yml'
+
+.go-test:
+  image: ${BASE_IMAGE_GO}
+  needs: []
+  variables:
+    GOPATH: $CI_PROJECT_DIR/.go
+  before_script:
+    - mkdir -p .go
+  cache:
+    paths:
+      - $CI_PROJECT_DIR/.go/pkg/mod/
+  stage: test
+  script:
+    - cd ${APP}/src
+    - go mod vendor
+    - go vet ./...
+    - go test -race -cover -coverprofile=${APP}.profile ./...
+    - go tool cover -html ${APP}.profile -o ../../${APP}.html
+    - cd ../../
+  artifacts:
+    when: on_success
+    paths:
+      - ${APP}.html
+
+.go-build:
+  extends: .docker
+  stage: build
+  script:
+    - docker pull -q ${IMAGE_NAME}:latest || true
+    - docker build .
+      -f docker/go/Dockerfile
+      -t ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}
+      -t ${IMAGE_NAME}:latest
+      --target prod
+      --build-arg APP=${APP}
+      --build-arg BASE_IMAGE=${BASE_IMAGE_GO}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      --cache-from ${IMAGE_NAME}:latest
+    - docker push ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}
+    - docker push ${IMAGE_NAME}:latest

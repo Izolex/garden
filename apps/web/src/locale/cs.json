@@ -1,0 +1,23 @@
+{
+  "global": {
+    "error": "Něco se pokakalo :(",
+  },
+  "routes": {
+    "index": {
+      "soon": "Snad někdy"
+    }
+  },
+  "components": {
+    "DefaultLayout": {
+      "mungo": "Mungo klíčky"
+    },
+  },
+  "periphery": {
+    "humiditySensor": {
+      "value": "Vlhkost"
+    },
+    "phSensor": {
+      "value": "pH vody"
+    }
+  }
+}

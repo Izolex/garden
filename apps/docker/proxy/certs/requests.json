@@ -1,0 +1,11 @@
+{
+  "hosts": [
+    "garden.local",
+    "api.garden.local",
+    "rasp.garden.local"
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  }
+}

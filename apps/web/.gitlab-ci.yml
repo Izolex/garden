@@ -1,0 +1,48 @@
+include:
+  - project: 'garden/gitlab-ci-tools'
+    ref: 'master'
+    file: 'docker.yml'
+
+stages:
+  - build
+  - test
+
+build:
+  extends: .docker
+  stage: build
+  script:
+    - docker pull -q ${IMAGE_NAME_WEB}:latest || true
+    - docker build web
+      -f web/docker/nginx/Dockerfile
+      -t ${IMAGE_NAME_WEB}:${CI_COMMIT_SHORT_SHA}
+      -t ${IMAGE_NAME_WEB}:latest
+      --build-arg BASE_IMAGE_NODE=${BASE_IMAGE_NODE}
+      --build-arg BASE_IMAGE=${BASE_IMAGE_NGINX}
+      --build-arg VERSION=${CI_COMMIT_SHORT_SHA}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      --cache-from ${IMAGE_NAME_WEB}:latest
+    - docker push ${IMAGE_NAME_WEB}:${CI_COMMIT_SHORT_SHA}
+    - docker push ${IMAGE_NAME_WEB}:latest
+
+test-image:
+  image: ${BASE_IMAGE_DEBIAN}
+  stage: test
+  services:
+    - name: ${IMAGE_NAME_WEB}:${CI_COMMIT_SHORT_SHA}
+      alias: web
+  script:
+    - curl -sSf http://web | grep -Fq "Honza&#39;s garden"
+    - curl -sSf http://web | grep -Fq "${CI_COMMIT_SHORT_SHA}"
+
+
+test-lint:
+  image: ${BASE_IMAGE_NODE}
+  stage: test
+  needs: []
+  cache:
+    paths:
+      - web/node_modules
+  script:
+    - cd web
+    - yarn install
+    - yarn lint

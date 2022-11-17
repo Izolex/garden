@@ -1,0 +1,23 @@
+{
+  "global": {
+    "error": "Something bad happened :(",
+  },
+  "routes": {
+    "index": {
+      "soon": "Maybe sometimes"
+    }
+  },
+  "components": {
+    "DefaultLayout": {
+      "mungo": "Mung sprouts"
+    }
+  },
+  "periphery": {
+    "humiditySensor": {
+      "value": "Humidity"
+    },
+    "phSensor": {
+      "value": "Water pH"
+    }
+  }
+}

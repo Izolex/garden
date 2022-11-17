@@ -1,0 +1,30 @@
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: web
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress
+      # sentry.io (source maps)
+      - ipBlock:
+          cidr: 35.184.238.160/32
+      - ipBlock:
+          cidr: 104.155.159.182/32
+      - ipBlock:
+          cidr: 104.155.149.19/32
+      - ipBlock:
+          cidr: 130.211.230.102/32
+    - from:
+      ports:
+        - port: 80
+

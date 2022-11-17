@@ -1,0 +1,10 @@
+.parcel-cache
+node_modules
+dist
+
+coverage
+junit.xml
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
